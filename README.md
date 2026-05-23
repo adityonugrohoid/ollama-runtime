@@ -2,10 +2,10 @@
 
 # Ollama Runtime
 
-[![Docker](https://img.shields.io/badge/docker-compose-2496ED.svg)](https://docs.docker.com/compose/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://docs.docker.com/compose/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**GPU-accelerated Ollama container with a shared Docker bridge network for multi-app local LLM serving**
+**GPU-accelerated Ollama container with a shared Docker bridge network so multiple apps share one local LLM**
 
 [Getting Started](#getting-started) | [Usage](#usage) | [Architecture](#architecture)
 
@@ -23,10 +23,10 @@
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
 - [Usage](#usage)
+- [Architectural Decisions](#architectural-decisions)
 - [Project Structure](#project-structure)
 - [Testing](#testing)
 - [Deployment](#deployment)
-- [Architectural Decisions](#architectural-decisions)
 - [Related Projects](#related-projects)
 - [License](#license)
 - [Author](#author)
@@ -146,6 +146,20 @@ Once attached, the Ollama API is available at `http://ollama:11434` inside any c
 
 All three are Q4_K_M quantized. `llama3.2:3b` is the default across consumer apps.
 
+## Architectural Decisions
+
+### 1. Lifecycle-independent shared network
+
+**Decision:** The Ollama container and its Docker network (`ollama-runtime-network`) are defined in a standalone repo rather than embedded in each consumer's Compose file.
+
+**Reasoning:** Embedding Ollama in every consumer app would require each service to manage model storage and GPU reservation independently, wasting disk and memory. A standalone runtime with an external network lets consumers start and stop without affecting model state or each other. The tradeoff is that this repo must be running before any consumer starts.
+
+### 2. Named volume for model storage
+
+**Decision:** Model weights are stored in a Docker named volume (`ollama_data`) rather than a bind-mount path.
+
+**Reasoning:** A named volume survives `docker compose down` and is portable across host paths, avoiding the need to re-pull multi-gigabyte models on each restart. Bind-mounts would tie the setup to a specific directory structure on the host.
+
 ## Project Structure
 
 ```
@@ -215,20 +229,6 @@ sudo systemctl restart docker
 ```
 
 The `docker-compose.yaml` already includes the GPU reservation block; no changes needed after toolkit installation.
-
-## Architectural Decisions
-
-### 1. Lifecycle-independent shared network
-
-**Decision:** The Ollama container and its Docker network (`ollama-runtime-network`) are defined in a standalone repo rather than embedded in each consumer's Compose file.
-
-**Reasoning:** Embedding Ollama in every consumer app would require each service to manage model storage and GPU reservation independently, wasting disk and memory. A standalone runtime with an external network lets consumers start and stop without affecting model state or each other. The tradeoff is that this repo must be running before any consumer starts.
-
-### 2. Named volume for model storage
-
-**Decision:** Model weights are stored in a Docker named volume (`ollama_data`) rather than a bind-mount path.
-
-**Reasoning:** A named volume survives `docker compose down` and is portable across host paths, avoiding the need to re-pull multi-gigabyte models on each restart. Bind-mounts would tie the setup to a specific directory structure on the host.
 
 ## Related Projects
 
